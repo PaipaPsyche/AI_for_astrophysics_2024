@@ -13,7 +13,7 @@ def dist_f(dat, cent):
 
 	return dist
 	
-def do_kmeans_clustering(data_type,nb_k=4,stopping_threshold=1e-6):
+def do_kmeans_clustering(data_type,nb_k=4,n_loops=200,stopping_threshold=1e-6):
     #data_type = "3d"
 
     # Usefull data, feel free to add the ones you may need
@@ -32,33 +32,54 @@ def do_kmeans_clustering(data_type,nb_k=4,stopping_threshold=1e-6):
 
     # The origin of the centers are selected randomly
     # To the position of some points in the dataset
-    init_pos = np.random.randint(low=0, high=nb_dat, size=nb_k)
 
-    centers = input_data[:,init_pos]
-    new_centers = np.zeros((nb_dim, nb_k))
-    nb_points_per_center = np.zeros((nb_k))
+    best_centers = None
+    best_avg_dist = 1e10
+    for loop_i in range(n_loops):
+    
+        init_pos = np.random.randint(low=0, high=nb_dat, size=nb_k)
 
-    stopping_threshold = 1e-6
-    ############################### ################################
-    #      Main loop, until the new centers do not move anymore
-    ############################### ################################
+        centers = input_data[:,init_pos]
+        new_centers = np.zeros((nb_dim, nb_k))
+        nb_points_per_center = np.zeros((nb_k))
+        avg_dist = np.zeros((nb_k))
 
-    while dist_f(new_centers, centers) > stopping_threshold: 
-        lbls = np.zeros(nb_dat)
-        for  i in range(nb_dat):
-            i_distances = np.array([ dist_f(input_data[:,i], centers[:,j]) for j in range(nb_k) ])
-            ind_min = np.argmin(i_distances)
-            nb_points_per_center[ind_min] += 1
-            lbls[i] = ind_min
-        for cnt in range(nb_k):
-            new_centers[:,cnt] = np.sum(input_data[:,lbls == cnt], axis=1) / nb_points_per_center[cnt]
-        centers = new_centers
+        stopping_threshold = 1e-6
+        ############################### ################################
+        #      Main loop, until the new centers do not move anymore
+        ############################### ################################
+
+        while dist_f(new_centers, centers) > stopping_threshold: 
+            lbls = np.zeros(nb_dat)
+            for  i in range(nb_dat):
+                i_distances = np.array([ dist_f(input_data[:,i], centers[:,j]) for j in range(nb_k) ])
+                ind_min = np.argmin(i_distances)
+                nb_points_per_center[ind_min] += 1
+                lbls[i] = ind_min
+            for cnt in range(nb_k):
+                new_centers[:,cnt] = np.sum(input_data[:,lbls == cnt], axis=1) / nb_points_per_center[cnt]
+                avg_dist[cnt] = np.sum([ dist_f(input_data[:,i], new_centers[:,cnt]) for i in range(nb_dat) if lbls[i] == cnt ])
+            centers = new_centers
+    
+        if np.sum(avg_dist) < best_avg_dist:
+            best_centers = centers
+            best_avg_dist = np.sum(avg_dist) 
+            print('new best d_avg = ',round(best_avg_dist,3),f'[loop {loop_i}]')
+                
+        
+        
     ################################ ################################
     #      Save the ending centroid position for visualisation
     ################################ ################################
 
-    np.savetxt("kmeans_output_%s.dat"%(data_type), centers.T, header="%d %d"%(nb_dim,nb_k), comments="")
-    plot_kmeans(data_type)
+    np.savetxt("kmeans_output_%s.dat"%(data_type), best_centers.T, header="%d %d"%(nb_dim,nb_k), comments="")
+
+
+def do_all(nb_k=4,stopping_threshold=1e-6):
+    do_kmeans_clustering("2d",nb_k=nb_k,stopping_threshold=stopping_threshold)
+    do_kmeans_clustering("3d",nb_k=nb_k,stopping_threshold=stopping_threshold)
+    plot_kmeans("2d")
+    plot_kmeans("3d")
 	
 	
 # VISUAL ++++++++++++++++++
@@ -98,8 +119,9 @@ def plot_kmeans(data_type):
         ax.set_ylabel("y")
         ax.set_zlabel("z")
 
-    plt.show()
     plt.savefig(f"kmeans_{data_type}_res.png", dpi=200)
+    plt.show()
+    
         
 
         
